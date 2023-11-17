@@ -62,8 +62,6 @@ export class Tree {
 
   private static processObj(fhirSd: StructureDefinition, type: ProcessingType): TreeNode | undefined {
     const els = mapToKeyValue(fhirSd);
-    console.log(els)
-
     if (isNil(els)) {
       return
     }
