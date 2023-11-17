@@ -22,7 +22,7 @@ export function initialize(options?: InitializeParams): void {
 
   initializeWebComponent('sd-view')
 
-  if (_opts.startOnLoad) {
+  if (_opts.startOnLoad && document.readyState !== 'complete') {
     window.addEventListener('load', () => {
       run(Array.from(document.querySelectorAll<HTMLElement>(_opts.querySelector)))
     })
