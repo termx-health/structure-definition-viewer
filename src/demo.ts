@@ -1,5 +1,6 @@
 import {structureDefinition} from './data';
 import {initialize} from './index';
+
 initialize({});
 
 

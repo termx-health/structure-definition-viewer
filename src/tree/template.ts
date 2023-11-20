@@ -149,11 +149,11 @@ export class TemplateBuilder {
             const diffProfiles = diff?.type.targetProfiles ?? [];
             const snapProfiles = snap?.type.targetProfiles?.filter(p => !diffProfiles.includes(p)) ?? [];
             const profileEls = [
-              ...diffProfiles.map(val => _draw({val, src: 'diff'}, p => p.slice(p.lastIndexOf('/') + 1))),
-              ...snapProfiles.map(val => _draw({val, src: 'snap'}, p => p.slice(p.lastIndexOf('/') + 1)))
+              ...diffProfiles.map(val => ({el: _draw({val, src: 'diff'}, p => p.slice(p.lastIndexOf('/') + 1)), url: val})),
+              ...snapProfiles.map(val => ({el: _draw({val, src: 'snap'}, p => p.slice(p.lastIndexOf('/') + 1)), url: val}))
             ]
 
-            return [`<a href>${typeEl}</a>`, profileEls.length ? `(${profileEls.map(el => `<a href>${el}</a>`).join(', ')})` : ''].filter(Boolean).join('')
+            return [`${typeEl}`, profileEls.length ? `(${profileEls.map(el => `<a href="${el.url}">${el.el}</a>`).join(', ')})` : ''].filter(Boolean).join('')
           })
           .join('<br>')
       }
@@ -180,8 +180,9 @@ export class TemplateBuilder {
         <!-- Description -->
         ${this.columns.includes('description') ?
         `<td style="vertical-align: top">
-          <div>${_draw(_val('short'))}</div>
-          <div>${_draw(_val('binding'), b => `${b ? `Binding: <a href>${b.valueSet} (${b?.strength})</a>` : ''}`)}</div>
+          ${_draw(_val('short'), s => s ? `<div>${s}</div>` : '')}
+          ${_draw(_val('definition'), d => d ? `<i style="color: var(--color-text-secondary)">${d}</i>` : '')}
+          ${_draw(_val('binding'), b => b ? `<div style="color: var(--color-text-secondary)">Binding: <a href="${b.valueSet}">${b.valueSet.slice(b.valueSet.lastIndexOf('/') + 1)}</a> (${b?.strength})</div>` : '')}
         </td>` : ''}
       `;
     };

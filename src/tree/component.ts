@@ -4,14 +4,13 @@ const STYLES = `
       :host {
           --color-primary: #d97706;
           --color-text: #1f1f1f;
-          --color-text-disabled: #9799a4;
+          --color-text-secondary: #00000073;
           --color-borders: #d2d3d8;
           --border-radius-component: 6px;
       }
 
 
       .m-tree-row {
-          font-family: verdana, sans-serif;
           text-align: left;
           white-space: nowrap;
           vertical-align: middle;
@@ -155,8 +154,8 @@ const STYLES = `
       border-bottom-right-radius: var(--border-radius-component);
     }
     
-    .button-group .button + .button {
-      margin-left: -1px;
+    .button-group .button:not(:last-child) {
+      border-right: none;
     }
   `
 

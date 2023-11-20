@@ -52,11 +52,9 @@ export class Tree {
   public static process(fhirSD: string, type: ProcessingType): TreeNode | undefined {
     const JSON_TOKEN = '{';
 
-    if (fhirSD.startsWith(JSON_TOKEN)) {
+    if (fhirSD?.trim().startsWith(JSON_TOKEN)) {
       return this.processObj(JSON.parse(fhirSD), type);
     }
-
-    throw Error('Unknown StructureDefinition source type')
   }
 
 
