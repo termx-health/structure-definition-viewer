@@ -41,6 +41,10 @@ export class TemplateBuilder {
   }
 
   private _render(): void {
+    if (isNil(this.CONTAINER)) {
+      return;
+    }
+
     const node = this.node;
     if (node === undefined) {
       this.CONTAINER.innerHTML = 'error'
@@ -182,7 +186,8 @@ export class TemplateBuilder {
         `<td style="vertical-align: top">
           ${_draw(_val('short'), s => s ? `<div>${s}</div>` : '')}
           ${_draw(_val('definition'), d => d ? `<i style="color: var(--color-text-secondary)">${d}</i>` : '')}
-          ${_draw(_val('binding'), b => b ? `<div style="color: var(--color-text-secondary)">Binding: <a href="${b.valueSet}">${b.valueSet.slice(b.valueSet.lastIndexOf('/') + 1)}</a> (${b?.strength})</div>` : '')}
+          ${_draw(_val('binding'), b => b ? `<div style="color: var(--color-text-secondary)">Binding: <a href="${b.valueSet}">${b.valueSet.slice(
+          b.valueSet.lastIndexOf('/') + 1)}</a> (${b?.strength})</div>` : '')}
         </td>` : ''}
       `;
     };
@@ -191,11 +196,11 @@ export class TemplateBuilder {
     return `
       <tr
         class="${[
-          'm-tree-row',
-          'm-tree-row--show-line',
-          !TemplateBuilder.calcNextSibling(node) ? 'm-tree-row--last-row' : '',
-          !node.children?.length ? 'm-tree-row--leaf' : ''].join(' ')
-        }"
+      'm-tree-row',
+      'm-tree-row--show-line',
+      !TemplateBuilder.calcNextSibling(node) ? 'm-tree-row--last-row' : '',
+      !node.children?.length ? 'm-tree-row--leaf' : ''].join(' ')
+    }"
         style="font-weight: ${node.children?.length ? 'bold' : 'initial'}"
       >
         <td class="m-tree-profile-wrapper" >
