@@ -12,9 +12,7 @@ const STYLES = `
 
       .m-tree-row {
           text-align: left;
-          white-space: nowrap;
           vertical-align: middle;
-          overflow: hidden;
           text-overflow: ellipsis;
       }
 
