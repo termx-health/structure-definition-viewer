@@ -2,6 +2,8 @@
 
 FHIR Version 5
 
+[Live Demo](https://kodality.gitlab.io/terminology/structure-definition-viewer/)
+
 ## Usage
 ```html
 <div id="scoped-container">
