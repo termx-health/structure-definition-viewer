@@ -72,3 +72,8 @@ import {initializeWebComponent} from "@kodality-web/fhir-structure-definition-vi
 
 initializeWebComponent('sd-web-component')
 ```
+
+## Run locally
+```bash
+npm run dev
+```
