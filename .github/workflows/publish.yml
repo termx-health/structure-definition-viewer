@@ -1,25 +1,34 @@
-name: Publish package
-
+name: Publish package to GitHub Packages
 on:
-  release:
-    types: [published]
-
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
 jobs:
-  publish:
+  build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
-
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            package:
+              - 'package.json'
+      # Setup .npmrc file to publish to GitHub Packages
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          registry-url: https://npm.pkg.github.com
-
-      - run: npm ci
-      - run: npm run build
-      - run: npm publish
+          node-version: '22.x'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@kodality-web'
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Publish
+        if: steps.filter.outputs.package == 'true'
+        run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
