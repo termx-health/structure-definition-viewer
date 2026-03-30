@@ -186,7 +186,7 @@ export class TemplateBuilder {
         `<td style="vertical-align: top">
           ${_draw(_val('short'), s => s ? `<div>${s}</div>` : '')}
           ${_draw(_val('definition'), d => d ? `<i style="color: var(--color-text-secondary)">${d}</i>` : '')}
-          ${_draw(_val('binding'), b => b ? `<div style="color: var(--color-text-secondary)">Binding: <a href="${b.valueSet}">${b.valueSet.slice(
+          ${_draw(_val('binding'), b => b?.valueSet ? `<div style="color: var(--color-text-secondary)">Binding: <a href="${b.valueSet}">${b.valueSet.slice(
           b.valueSet.lastIndexOf('/') + 1)}</a> (${b?.strength})</div>` : '')}
         </td>` : ''}
       `;
