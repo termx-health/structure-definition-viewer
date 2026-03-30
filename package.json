@@ -1,5 +1,5 @@
 {
-  "name": "@kodality-web/structure-definition-viewer",
+  "name": "@termx-health/structure-definition-viewer",
   "version": "5.0.7",
   "type": "module",
   "main": "./dist/structure-definition-viewer.umd.cjs",
