@@ -12,7 +12,13 @@ export class TemplateBuilder {
     private data: string,
     private mode: 'diff' | 'snap' | 'hybrid' = 'diff',
     private inline: boolean = false,
-    private columns = ['flags', 'cardinality', 'types', 'description']
+    private columns = ['flags', 'cardinality', 'types', 'description'],
+    /** see {@code HelloWorld.resolveUrl} doc */
+    private resolveUrl?: string,
+    /** see {@code HelloWorld.linkBase} doc */
+    private linkBase?: string,
+    /** shared {@code key: type|canonical → resolvedHref|null} cache, lifecycle = component instance */
+    private resolveCache: Map<string, string | null> = new Map(),
   ) {}
 
   public static build(data: string, opts: {
@@ -21,6 +27,9 @@ export class TemplateBuilder {
     mode: 'diff' | 'snap' | 'hybrid',
     inline?: boolean,
     columns?: string[],
+    resolveUrl?: string,
+    linkBase?: string,
+    resolveCache?: Map<string, string | null>,
   }): TemplateBuilder {
     opts.mode ??= 'diff';
     opts.inline ??= false;
@@ -29,7 +38,8 @@ export class TemplateBuilder {
     return new TemplateBuilder(
       opts.document, opts.container,
       data,
-      opts.mode, opts.inline, opts.columns
+      opts.mode, opts.inline, opts.columns,
+      opts.resolveUrl, opts.linkBase, opts.resolveCache
     )
   }
 
@@ -94,6 +104,93 @@ export class TemplateBuilder {
         this._render()
       });
     })
+
+    // Canonical-URL link rewriting — only when host configured a resolve endpoint.
+    // No-op for embedders that don't set `resolve-url` (e.g. standalone demo).
+    if (this.resolveUrl) {
+      this.rewriteCanonicalLinks(container);
+    }
+  }
+
+
+  // Canonical resolve
+
+  /**
+   * Walk all binding/profile links emitted by the tree, ask the host's
+   * resolve endpoint whether the catalog serves each one, and on hit rewrite
+   * the {@code href} to point at the local copy. Cached per component
+   * instance so toggle/mode changes don't refetch.
+   *
+   * <p>Errors and misses are swallowed silently — the link keeps its
+   * original canonical-URL href in that case, which is the legacy behavior
+   * the standalone viewer already had.
+   */
+  private rewriteCanonicalLinks(container: HTMLElement): void {
+    const links = Array.from(container.querySelectorAll<HTMLAnchorElement>('a[data-sdv-canonical]'));
+    if (links.length === 0) {
+      return;
+    }
+    const linkBase = this.deriveLinkBase();
+
+    // Dedup in-flight requests: many links can point to the same canonical.
+    const pending = new Map<string, Promise<string | null>>();
+
+    links.forEach(link => {
+      const canonical = link.getAttribute('data-sdv-canonical');
+      const type = link.getAttribute('data-sdv-canonical-type');
+      if (!canonical || !type) return;
+
+      const key = `${type}|${canonical}`;
+
+      // 1) cache hit (positive or negative)
+      if (this.resolveCache.has(key)) {
+        const cached = this.resolveCache.get(key);
+        if (cached) link.setAttribute('href', cached);
+        return;
+      }
+
+      // 2) in-flight dedup
+      let p = pending.get(key);
+      if (!p) {
+        p = this.fetchResolve(type, canonical, linkBase);
+        pending.set(key, p);
+      }
+      p.then(href => {
+        this.resolveCache.set(key, href);
+        if (href) link.setAttribute('href', href);
+      });
+    });
+  }
+
+  private async fetchResolve(type: string, canonical: string, linkBase: string): Promise<string | null> {
+    try {
+      const url = new URL(this.resolveUrl!, window.location.href);
+      url.searchParams.set('resourceType', type);
+      url.searchParams.set('url', canonical);
+      const resp = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {'Accept': 'application/json'},
+        credentials: 'same-origin',
+      });
+      if (!resp.ok) return null;
+      const json = await resp.json();
+      if (!json?.resolved || !json?.resourceType || !json?.id) return null;
+      return `${stripTrailingSlash(linkBase)}/${encodeURIComponent(json.resourceType)}/${encodeURIComponent(json.id)}`;
+    } catch {
+      // Network error, CORS rejection, malformed JSON — fall back to canonical href.
+      return null;
+    }
+  }
+
+  private deriveLinkBase(): string {
+    if (this.linkBase) return this.linkBase;
+    // Default: derive from resolveUrl by stripping the trailing `/_resolve` segment.
+    // e.g. `/api/fhir/_resolve` → `/api/fhir`. Works for both absolute and relative
+    // resolveUrl since we only manipulate the path tail.
+    const r = this.resolveUrl!;
+    if (r.endsWith('/_resolve')) return r.substring(0, r.length - '/_resolve'.length);
+    if (r.endsWith('/_resolve/')) return r.substring(0, r.length - '/_resolve/'.length);
+    return r;
   }
 
 
@@ -157,7 +254,7 @@ export class TemplateBuilder {
               ...snapProfiles.map(val => ({el: _draw({val, src: 'snap'}, p => p.slice(p.lastIndexOf('/') + 1)), url: val}))
             ]
 
-            return [`${typeEl}`, profileEls.length ? `(${profileEls.map(el => `<a href="${el.url}">${el.el}</a>`).join(', ')})` : ''].filter(Boolean).join('')
+            return [`${typeEl}`, profileEls.length ? `(${profileEls.map(el => `<a href="${el.url}" data-sdv-canonical="${escapeAttr(el.url)}" data-sdv-canonical-type="StructureDefinition">${el.el}</a>`).join(', ')})` : ''].filter(Boolean).join('')
           })
           .join('<br>')
       }
@@ -186,7 +283,7 @@ export class TemplateBuilder {
         `<td style="vertical-align: top">
           ${_draw(_val('short'), s => s ? `<div>${s}</div>` : '')}
           ${_draw(_val('definition'), d => d ? `<i style="color: var(--color-text-secondary)">${d}</i>` : '')}
-          ${_draw(_val('binding'), b => b?.valueSet ? `<div style="color: var(--color-text-secondary)">Binding: <a href="${b.valueSet}">${b.valueSet.slice(
+          ${_draw(_val('binding'), b => b?.valueSet ? `<div style="color: var(--color-text-secondary)">Binding: <a href="${b.valueSet}" data-sdv-canonical="${escapeAttr(b.valueSet)}" data-sdv-canonical-type="ValueSet">${b.valueSet.slice(
           b.valueSet.lastIndexOf('/') + 1)}</a> (${b?.strength})</div>` : '')}
         </td>` : ''}
       `;
@@ -293,4 +390,29 @@ export class TemplateBuilder {
     const nodeIndex = parenChildren.findIndex(c => c.key === node.key);
     return nodeIndex !== -1 ? parenChildren[nodeIndex + 1] : undefined;
   }
+}
+
+
+// File-local helpers used by inline-template construction. Not exported —
+// only the TemplateBuilder is part of the public surface.
+
+/**
+ * Minimal HTML attribute-value escaper. Canonical URLs come from FHIR data
+ * and can contain `&`, double quotes, or angle brackets; without escaping
+ * they could break the surrounding {@code data-sdv-canonical="…"} attribute.
+ */
+function escapeAttr(s: string): string {
+  return String(s).replace(/[&"<>]/g, c => {
+    switch (c) {
+      case '&': return '&amp;';
+      case '"': return '&quot;';
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      default: return c;
+    }
+  });
+}
+
+function stripTrailingSlash(s: string): string {
+  return s.endsWith('/') ? s.substring(0, s.length - 1) : s;
 }
