@@ -164,15 +164,45 @@ export class HelloWorld extends HTMLElement {
   private inline?: boolean;
   private columns = ['flags', 'cardinality', 'types', 'description'];
 
+  /**
+   * Optional. If set, binding & profile-target links are sent to this URL
+   * (GET ?resourceType=...&url=...) to check whether the host catalog has
+   * the canonical, and rewritten on hit. When not set, links keep their
+   * original canonical href — i.e. exactly the legacy behavior.
+   *
+   * The endpoint must answer {@code 200 {"resolved": true|false, ...}};
+   * see termx/terminology-explorer's {@code CanonicalResolveController}
+   * for the contract.
+   */
+  private resolveUrl?: string;
+
+  /**
+   * Optional. URL prefix used to build the rewritten {@code href} when a
+   * canonical resolves. Final href is {@code `${linkBase}/${resourceType}/${id}`}.
+   * Defaults to {@code resolveUrl} with a trailing {@code /_resolve} stripped
+   * (so {@code /api/fhir/_resolve} → {@code /api/fhir/…}).
+   */
+  private linkBase?: string;
+
+  /**
+   * Shared across renders so toggle / mode-switch doesn't re-fetch every link
+   * each time. {@code null} value means "miss" (don't bother fetching again).
+   */
+  private readonly resolveCache = new Map<string, string | null>();
+
   static get observedAttributes() {
-    return ['mode', 'data', 'inline', 'columns'];
+    return ['mode', 'data', 'inline', 'columns', 'resolve-url', 'link-base'];
   }
 
-  attributeChangedCallback(property: keyof this, oldValue: any, newValue: any) {
+  attributeChangedCallback(name: string, oldValue: any, newValue: any) {
     if (oldValue === newValue) {
       return;
     }
-    this[property] = newValue;
+    // Kebab-case attribute → camelCase property. Web Component attribute
+    // names are always lowercase per the HTML spec, so we accept the
+    // hyphenated form and assign to the matching camelCase field.
+    const prop = name.replace(/-([a-z])/g, (_, c) => c.toUpperCase()) as keyof this;
+    (this as any)[prop] = newValue;
     Promise.resolve().then(() => this.render());
   }
 
@@ -198,7 +228,10 @@ export class HelloWorld extends HTMLElement {
         container: this.shadowRoot!,
         mode: this.mode,
         inline: this.inline,
-        columns: this.columns
+        columns: this.columns,
+        resolveUrl: this.resolveUrl,
+        linkBase: this.linkBase,
+        resolveCache: this.resolveCache,
       })
       .render()
   }
